@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>littleproject</title>
+<style>
+:root{--bg:#eef2f0;--panel:#fff;--ink:#14201b;--muted:#5b6b64;--line:#cfd9d4;--accent:#1f6f54;--accent-ink:#fff;--err:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1714;--panel:#17221d;--ink:#e8f0ec;--muted:#93a69d;--line:#2a3a33;--accent:#5fc9a0;--accent-ink:#08150f;--err:#ff8a80}}
+html{height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:17px/1.5 "Segoe UI",system-ui,-apple-system,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
+main{width:100%;max-width:440px}
+h1{font-size:1.7rem;line-height:1.2;margin:0 0 6px}
+p.sub{margin:0 0 22px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+label{display:block;font-weight:600;margin-bottom:8px}
+input{width:100%;font:inherit;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+input:focus-visible,button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button{margin-top:14px;width:100%;font:inherit;font-weight:600;padding:12px;border:0;border-radius:10px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+#err{min-height:1.4em;margin:10px 0 0;color:var(--err);font-size:.95rem}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+a.link{display:block;padding:14px 16px;border:1px solid var(--line);border-radius:10px;color:var(--ink);text-decoration:none;background:var(--bg)}
+a.link:hover{border-color:var(--accent)}
+a.link small{display:block;color:var(--muted);font-size:.85rem}
+.lock{margin-top:16px;background:none;color:var(--muted);border:1px solid var(--line);width:auto;padding:8px 14px;font-weight:500}
+main.wide{max-width:760px}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px;flex-wrap:wrap}
+.hud h1{margin:0}
+.count{font-weight:600;color:var(--accent);white-space:nowrap}
+.stage{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#7fbf6a;touch-action:none}
+canvas{display:block;width:100%;aspect-ratio:4/3;cursor:pointer}
+.hint{margin:10px 0 0;color:var(--muted);font-size:.9rem}
+.pad{position:absolute;right:10px;bottom:10px;display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:4px}
+.pad button{margin:0;width:44px;height:44px;padding:0;border-radius:10px;background:rgba(255,255,255,.75);color:#14201b;font-size:1.1rem;touch-action:none}
+.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+@media (hover:hover) and (pointer:fine){.pad{display:none}}
+h2{font-size:1.1rem;margin:20px 0 10px}
+dialog{border:0;border-radius:16px;padding:0;max-width:380px;width:calc(100% - 32px);background:var(--panel);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(10,20,15,.55)}
+.photo{aspect-ratio:4/3;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.photo img,.photo svg{width:100%;height:100%;object-fit:cover;display:block}
+.pop{padding:20px 22px 22px}
+.saying{font-size:1.25rem;line-height:1.35;font-style:italic;margin:0 0 16px}
+.pop a.link{margin-bottom:4px}
+.pop button{margin-top:12px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <section id="gate" class="card">
+    <h1>Enter the password</h1>
+    <p class="sub">You'll get the links once it's right.</p>
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autocomplete="current-password" autofocus>
+    <button id="go" type="button">Unlock</button>
+    <p id="err" role="alert"></p>
+  </section>
+  <section id="vault" class="card" hidden>
+    <div class="hud">
+      <h1>The orchard</h1>
+      <span class="count" id="count" aria-live="polite"></span>
+    </div>
+    <div class="stage">
+      <canvas id="game" aria-label="Orchard game. Walk to each apple to pick it up."></canvas>
+      <div class="pad" aria-hidden="true">
+        <button class="up" data-dir="up" type="button">▲</button>
+        <button class="left" data-dir="left" type="button">◀</button>
+        <button class="down" data-dir="down" type="button">▼</button>
+        <button class="right" data-dir="right" type="button">▶</button>
+      </div>
+    </div>
+    <p class="hint">Walk with the arrow keys or WASD, or tap where you want to go. Pick up every apple 🍎</p>
+    <h2>Your basket</h2>
+    <p class="sub" id="empty">Nothing yet. Go find an apple!</p>
+    <ul id="links"></ul>
+    <button id="lock" class="lock" type="button">Lock again</button>
+  </section>
+</main>
+<dialog id="pop">
+  <div class="photo" id="photo"></div>
+  <div class="pop">
+    <p class="saying" id="saying"></p>
+    <a class="link" id="poplink" target="_blank" rel="noopener noreferrer"></a>
+    <button id="close" type="button">Keep walking</button>
+  </div>
+</dialog>
+<script>
+const PAYLOAD = {"s":"vbFM+oMyCO/NscYFH30zBg==","i":"QWLz2P8fWoLbVW8H","c":"N0MyDOL9b4ObrWo0FSI9ZkpookGU298cj/l4kn01V5R/3WLFnd/3T/MxkmMbSuLd5vYnwhcxfUP3YvDCBKRo08tkPIieqjU5BtquvCqlc+mlUZKlcwTSeeEP3dYFbZ5W1p5NpG4dsti6HNHn46zIkvJFEy8SvP++xqfXPD3hPMfkarNI9TbQafa8qABU79XCBM2ofSIKnU7GGiTokWp0FShZHTpEmiERB3NjY6NDrf+++dw+VWxZwqlNuQY9cTqoT+vOalwwWw9cZAFUjoz6Q/YMVxVDoQQHKHX+cC2XWhlNkVbKqKIoNrPbYbXvdcdPh+q6wjW/KeUQjlkPsiO9Sbxx5Sw46cD1967paI7vKwTHDcQh9GSXlIchHFzXiUy5dqh/FMcQIv2vu7EOOetJ+VASlqCdqdtVc0trqKlJuG7wfQ4D5NOjLZB9yXyjk/6guh4hQj3SYWq7bZYjTi8xWvZ0kjU="};
+const $ = id => document.getElementById(id);
+const unb64 = s => Uint8Array.from(atob(s), ch => ch.charCodeAt(0));
+
+async function decrypt(password){
+  const km = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name:"PBKDF2", salt:unb64(PAYLOAD.s), iterations:200000, hash:"SHA-256" }, km, { name:"AES-GCM", length:256 }, false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv:unb64(PAYLOAD.i) }, key, unb64(PAYLOAD.c));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+// Swap in real photos by adding image paths here, in apple order (e.g. "images/beach.jpg").
+// Any apple without a photo gets a drawn placeholder.
+const PHOTOS = [];
+const SAYINGS = [
+  "You're the apple of my eye.",
+  "Some things are worth walking a little further for.",
+  "Two souls, one orchard.",
+  "Picked fresh, just for you.",
+  "Little moments, big smiles.",
+  "Every path is better with you on it.",
+  "Sweet things grow slowly.",
+  "An apple a day keeps the boring away.",
+  "Here's one I saved just for you.",
+  "Keep going, there's more good stuff ahead."
+];
+
+function placeholderPhoto(i){
+  const h = (i * 47 + 190) % 360, ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 400 300");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", "Placeholder photo");
+  svg.innerHTML = `
+    <defs><linearGradient id="sky${i}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="hsl(${h},70%,78%)"/><stop offset="1" stop-color="hsl(${(h+40)%360},80%,90%)"/></linearGradient></defs>
+    <rect width="400" height="300" fill="url(#sky${i})"/>
+    <circle cx="${300 - (i%3)*90}" cy="80" r="34" fill="hsl(45,100%,70%)"/>
+    <path d="M0 220 Q100 150 200 210 T400 190 V300 H0Z" fill="hsl(${(h+150)%360},35%,55%)"/>
+    <path d="M0 250 Q120 200 240 245 T400 235 V300 H0Z" fill="hsl(${(h+150)%360},40%,42%)"/>
+    <path d="M200 150 c-18 -26 -58 -8 -40 22 l40 34 l40 -34 c18 -30 -22 -48 -40 -22z" fill="#e2453c" opacity=".9"/>
+    <text x="200" y="285" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" fill="#fff" opacity=".9">photo coming soon</text>`;
+  return svg;
+}
+
+function addToBasket(l){
+  const li = document.createElement("li"), a = document.createElement("a");
+  a.className = "link"; a.href = l.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.textContent = l.title;
+  if (l.note){ const s = document.createElement("small"); s.textContent = l.note; a.appendChild(s); }
+  li.appendChild(a); $("links").appendChild(li);
+  $("empty").hidden = true;
+}
+
+// ---------- game ----------
+const W = 960, H = 720;
+const canvas = $("game"), ctx = canvas.getContext("2d");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let game = null;
+
+function rng(seed){ return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+
+function buildWorld(links){
+  const r = rng(42), trees = [], apples = [], tufts = [], flowers = [];
+  for (let i = 0; i < 90; i++) tufts.push({ x: r()*W, y: r()*H });
+  for (let i = 0; i < 40; i++) flowers.push({ x: r()*W, y: r()*H, c: ["#fff","#ffd84d","#f7a1c4"][i%3] });
+  const start = { x: W/2, y: H/2 };
+  const clear = (x, y, d, list) => list.every(o => Math.hypot(o.x - x, o.y - y) > d);
+  for (let tries = 0; trees.length < 14 && tries < 500; tries++){
+    const x = 60 + r()*(W-120), y = 70 + r()*(H-130);
+    if (Math.hypot(x-start.x, y-start.y) > 110 && clear(x, y, 120, trees)) trees.push({ x, y });
+  }
+  links.forEach((link, i) => {
+    for (let tries = 0; tries < 800; tries++){
+      const x = 40 + r()*(W-80), y = 40 + r()*(H-80);
+      if (Math.hypot(x-start.x, y-start.y) > 120 && clear(x, y, 60, trees) && clear(x, y, 90, apples)){
+        apples.push({ x, y, link, i, got: false, phase: r()*6 }); return;
+      }
+    }
+    apples.push({ x: 40 + r()*(W-80), y: 40 + r()*(H-80), link, i, got: false, phase: 0 });
+  });
+  return { trees, apples, tufts, flowers, player: { ...start, dir: 1, step: 0, moving: false }, keys: {}, target: null, paused: false, raf: 0, last: 0, cam: { x: 0, y: 0, vw: 0, vh: 0 } };
+}
+
+function resize(){
+  const dpr = window.devicePixelRatio || 1, cw = canvas.clientWidth, ch = canvas.clientHeight;
+  canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+  if (game){
+    // show a 640-wide slice of the world, scaled to fit the canvas
+    game.scale = cw / Math.min(640, W); game.dpr = dpr;
+    game.cam.vw = cw / game.scale; game.cam.vh = ch / game.scale;
+  }
+}
+
+function updateCount(){
+  const got = game.apples.filter(a => a.got).length, n = game.apples.length;
+  $("count").textContent = got === n ? `All ${n} apples found! 🧺` : `🍎 ${got} / ${n}`;
+}
+
+function step(t){
+  const g = game; if (!g) return;
+  const dt = Math.min(0.05, (t - (g.last || t)) / 1000); g.last = t;
+  if (!g.paused){
+    const p = g.player, speed = 190;
+    let dx = (g.keys.right?1:0) - (g.keys.left?1:0), dy = (g.keys.down?1:0) - (g.keys.up?1:0);
+    if (dx || dy) g.target = null;
+    else if (g.target){
+      const tx = g.target.x - p.x, ty = g.target.y - p.y, d = Math.hypot(tx, ty);
+      if (d < 4) g.target = null; else { dx = tx/d; dy = ty/d; }
+    }
+    const len = Math.hypot(dx, dy);
+    p.moving = len > 0;
+    if (p.moving){
+      p.x += dx/len*speed*dt; p.y += dy/len*speed*dt; p.step += dt*12;
+      if (dx) p.dir = dx > 0 ? 1 : -1;
+    }
+    // tree trunks block the way
+    for (const tr of g.trees){
+      const ox = p.x - tr.x, oy = p.y - (tr.y + 18), d = Math.hypot(ox, oy), min = 30;
+      if (d < min && d > 0){ p.x = tr.x + ox/d*min; p.y = tr.y + 18 + oy/d*min; if (g.target && Math.hypot(g.target.x - tr.x, g.target.y - tr.y - 18) < min) g.target = null; }
+    }
+    p.x = Math.max(16, Math.min(W-16, p.x)); p.y = Math.max(16, Math.min(H-16, p.y));
+    for (const a of g.apples){
+      if (!a.got && Math.hypot(a.x - p.x, a.y - p.y) < 28){ a.got = true; pickUp(a); break; }
+    }
+  }
+  draw(t);
+  g.raf = requestAnimationFrame(step);
+}
+
+function draw(t){
+  const g = game, p = g.player, c = g.cam;
+  c.x = Math.max(0, Math.min(W - c.vw, p.x - c.vw/2));
+  c.y = Math.max(0, Math.min(H - c.vh, p.y - c.vh/2));
+  ctx.setTransform(g.dpr*g.scale, 0, 0, g.dpr*g.scale, -c.x*g.dpr*g.scale, -c.y*g.dpr*g.scale);
+  ctx.fillStyle = "#86c46f"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#6faa58"; ctx.lineWidth = 2;
+  for (const f of g.tufts){ ctx.beginPath(); ctx.moveTo(f.x-4, f.y); ctx.lineTo(f.x-2, f.y-7); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x+1, f.y-9); ctx.moveTo(f.x+4, f.y); ctx.lineTo(f.x+5, f.y-6); ctx.stroke(); }
+  for (const f of g.flowers){ ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc(f.x, f.y, 3, 0, 7); ctx.fill(); }
+
+  // sort trees, apples and player by y so things overlap naturally
+  const items = [
+    ...g.trees.map(o => ({ y: o.y + 18, d: () => drawTree(o) })),
+    ...g.apples.filter(a => !a.got).map(a => ({ y: a.y, d: () => drawApple(a, t) })),
+    { y: p.y, d: () => drawPlayer(p) }
+  ].sort((a, b) => a.y - b.y);
+  items.forEach(i => i.d());
+
+  if (g.target){ ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(g.target.x, g.target.y, 10, 5, 0, 0, 7); ctx.stroke(); }
+}
+
+function drawTree(o){
+  ctx.fillStyle = "rgba(0,0,0,.15)"; ctx.beginPath(); ctx.ellipse(o.x, o.y + 22, 34, 10, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#7a5233"; ctx.fillRect(o.x - 8, o.y - 5, 16, 28);
+  ctx.fillStyle = "#3f8f43"; ctx.beginPath(); ctx.arc(o.x, o.y - 30, 40, 0, 7); ctx.fill();
+  ctx.fillStyle = "#52a653"; ctx.beginPath(); ctx.arc(o.x - 12, o.y - 40, 24, 0, 7); ctx.fill();
+}
+
+function drawApple(a, t){
+  const bob = reduceMotion ? 0 : Math.sin(t/300 + a.phase) * 3;
+  ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.beginPath(); ctx.ellipse(a.x, a.y + 10, 10 - bob/2, 4, 0, 0, 7); ctx.fill();
+  const y = a.y - 4 + bob;
+  ctx.fillStyle = "#e2453c"; ctx.beginPath(); ctx.arc(a.x - 4, y, 9, 0, 7); ctx.arc(a.x + 4, y, 9, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.beginPath(); ctx.arc(a.x - 6, y - 4, 3, 0, 7); ctx.fill();
+  ctx.strokeStyle = "#5a3a1e"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, y - 7); ctx.lineTo(a.x + 1, y - 14); ctx.stroke();
+  ctx.fillStyle = "#3f9b3f"; ctx.beginPath(); ctx.ellipse(a.x + 6, y - 13, 6, 3, -0.5, 0, 7); ctx.fill();
+}
+
+function drawPlayer(p){
+  const b = p.moving && !reduceMotion ? Math.abs(Math.sin(p.step)) * 3 : 0, leg = p.moving ? Math.sin(p.step) * 4 : 0;
+  ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + 14, 12, 5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#2b3a55"; ctx.fillRect(p.x - 6 + leg/2, p.y + 4, 5, 10); ctx.fillRect(p.x + 1 - leg/2, p.y + 4, 5, 10);
+  ctx.fillStyle = "#f2a541"; ctx.beginPath(); ctx.roundRect(p.x - 10, p.y - 12 - b, 20, 20, 6); ctx.fill();
+  ctx.fillStyle = "#ffd9b8"; ctx.beginPath(); ctx.arc(p.x, p.y - 22 - b, 11, 0, 7); ctx.fill();
+  ctx.fillStyle = "#4a2c1a"; ctx.beginPath(); ctx.arc(p.x, p.y - 26 - b, 11, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = "#14201b"; ctx.beginPath(); ctx.arc(p.x + 4*p.dir, p.y - 21 - b, 1.8, 0, 7); ctx.arc(p.x + 4*p.dir - 6*p.dir, p.y - 21 - b, 1.8, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(240,110,110,.6)"; ctx.beginPath(); ctx.arc(p.x + 7*p.dir, p.y - 17 - b, 2.5, 0, 7); ctx.fill();
+}
+
+function pickUp(a){
+  game.paused = true; game.keys = {}; game.target = null;
+  const ph = $("photo"); ph.innerHTML = "";
+  if (PHOTOS[a.i]){ const img = document.createElement("img"); img.src = PHOTOS[a.i]; img.alt = ""; ph.appendChild(img); }
+  else ph.appendChild(placeholderPhoto(a.i));
+  $("saying").textContent = SAYINGS[a.i % SAYINGS.length];
+  const link = $("poplink"); link.href = a.link.url; link.textContent = a.link.title;
+  if (a.link.note){ const s = document.createElement("small"); s.textContent = a.link.note; link.appendChild(s); }
+  addToBasket(a.link); updateCount();
+  $("pop").showModal();
+}
+
+$("close").addEventListener("click", () => $("pop").close());
+$("pop").addEventListener("close", () => { if (game){ game.paused = false; game.last = 0; } canvas.focus(); });
+
+const KEYMAP = { ArrowUp:"up", KeyW:"up", ArrowDown:"down", KeyS:"down", ArrowLeft:"left", KeyA:"left", ArrowRight:"right", KeyD:"right" };
+addEventListener("keydown", e => { const d = KEYMAP[e.code]; if (game && d && !game.paused && !$("vault").hidden){ game.keys[d] = true; e.preventDefault(); } });
+addEventListener("keyup", e => { const d = KEYMAP[e.code]; if (game && d) game.keys[d] = false; });
+addEventListener("blur", () => { if (game) game.keys = {}; });
+addEventListener("resize", resize);
+canvas.addEventListener("pointerdown", e => {
+  if (!game || game.paused) return;
+  const r = canvas.getBoundingClientRect();
+  game.target = { x: game.cam.x + (e.clientX - r.left) / game.scale, y: game.cam.y + (e.clientY - r.top) / game.scale };
+});
+document.querySelectorAll(".pad button").forEach(b => {
+  const d = b.dataset.dir;
+  b.addEventListener("pointerdown", e => { e.preventDefault(); if (game && !game.paused) game.keys[d] = true; });
+  ["pointerup","pointerleave","pointercancel"].forEach(ev => b.addEventListener(ev, () => { if (game) game.keys[d] = false; }));
+});
+
+function startGame(list){
+  $("links").innerHTML = ""; $("empty").hidden = false;
+  $("gate").hidden = true; $("vault").hidden = false; document.querySelector("main").classList.add("wide");
+  canvas.tabIndex = 0;
+  game = buildWorld(list);
+  resize(); updateCount(); canvas.focus();
+  game.raf = requestAnimationFrame(step);
+}
+
+function stopGame(){
+  if (game) cancelAnimationFrame(game.raf);
+  game = null;
+}
+
+async function tryUnlock(){
+  $("err").textContent = "";
+  try{ startGame(await decrypt($("pw").value)); $("pw").value = ""; }
+  catch(e){ $("err").textContent = "That password is wrong. Try again."; $("pw").select(); }
+}
+
+$("go").addEventListener("click", tryUnlock);
+$("pw").addEventListener("keydown", e => { if (e.key === "Enter") tryUnlock(); });
+$("lock").addEventListener("click", () => { stopGame(); document.querySelector("main").classList.remove("wide"); $("vault").hidden = true; $("gate").hidden = false; $("links").innerHTML = ""; $("pw").focus(); });
+</script>
+</body>
+</html>
